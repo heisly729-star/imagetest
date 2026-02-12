@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EduGen AI - Studio Mode</title>
+    <title>EduGen AI - Smart Context Mode</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800&display=swap');
@@ -46,7 +46,7 @@
             backdrop-filter: blur(2px);
         }
 
-        /* [NEW] 모달 애니메이션 */
+        /* 모달 애니메이션 */
         .modal-enter { animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
         @keyframes modalIn { 
             from { opacity: 0; transform: scale(0.95); } 
@@ -337,18 +337,45 @@
             if(mode === 'structured') document.getElementById('finalGenBtn').classList.remove('hidden');
         }
 
-        // 3. 채팅 엔진
+        // 3. 채팅 엔진 (수정됨: 너무 짧은 입력 감지)
         function sendMessage() {
             const input = document.getElementById('freeInput');
             const chatWindow = document.getElementById('chatWindow');
-            if(!input.value.trim()) return;
+            const userText = input.value.trim();
+            if(!userText) return;
 
-            finalPrompt = input.value; 
-
-            chatWindow.innerHTML += `<div class="chat-bubble user-bubble">${input.value}</div>`;
+            // 사용자 말풍선 추가
+            chatWindow.innerHTML += `<div class="chat-bubble user-bubble">${userText}</div>`;
             input.value = "";
             chatWindow.scrollTop = chatWindow.scrollHeight;
 
+            // [NEW] 입력 검증 로직 (6글자 미만일 경우 추가 정보 요청)
+            if (userText.length < 6) {
+                setTimeout(() => {
+                    const feedbackResponse = `
+                        <div class="chat-bubble ai-bubble bg-indigo-50 border border-indigo-100">
+                            <strong>🧐 정보가 더 필요해요!</strong><br>
+                            "${userText}"에 대한 완벽한 미드저니 프롬프트를 만들기 위해 아래 정보를 알려주세요:<br><br>
+                            <ul class="list-disc list-inside text-sm space-y-2 text-slate-700 bg-white p-4 rounded-xl shadow-sm">
+                                <li><strong>행동, 포즈</strong></li>
+                                <li><strong>배경, 장소</strong></li>
+                                <li><strong>분위기, 감정</strong></li>
+                                <li><strong>색감</strong></li>
+                                <li><strong>해상도 (예: 8k)</strong></li>
+                                <li><strong>화면 비율 (예: 1:1, 4:3)</strong></li>
+                                <li><strong>특정 스타일 (예: 수채화, 판타지 등)</strong></li>
+                            </ul>
+                        </div>
+                    `;
+                    chatWindow.innerHTML += feedbackResponse;
+                    chatWindow.scrollTop = chatWindow.scrollHeight;
+                }, 600);
+                // 중요: 여기서 return하여 '생성 시작 버튼'이 뜨지 않도록 함 (대화 지속)
+                return;
+            }
+
+            // 정상 입력일 경우 (기존 로직)
+            finalPrompt = userText; 
             setTimeout(() => {
                 const aiResponse = `
                     <div class="chat-bubble ai-bubble">
@@ -509,7 +536,7 @@
             }, 1500);
         }
 
-        // --- [NEW] 모달 및 다운로드 로직 ---
+        // --- 모달 및 다운로드 로직 ---
 
         function openDownloadModal() {
             if (currentHistoryIndex === -1) {
@@ -528,7 +555,6 @@
             const currentUrl = currentImg.url;
             const fileName = `EduGen_Ver_${currentHistoryIndex + 1}`;
 
-            // 캔버스 생성 (형식 변환을 위해)
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             const img = new Image();
@@ -544,45 +570,16 @@
                 let downloadName;
 
                 if (format === 'jpg') {
-                    // JPG: 0.9 퀄리티
                     downloadUrl = canvas.toDataURL('image/jpeg', 0.9);
                     downloadName = `${fileName}.jpg`;
                     triggerDownload(downloadUrl, downloadName);
 
                 } else if (format === 'png') {
-                    // PNG: 투명도 지원, 고화질
                     downloadUrl = canvas.toDataURL('image/png');
                     downloadName = `${fileName}.png`;
                     triggerDownload(downloadUrl, downloadName);
 
                 } else if (format === 'ai') {
-                    // AI (Project): 실제로는 원본 PNG를 다운로드하되, 
-                    // 파일명에 _Project_Source를 붙여서 편집용임을 명시 (순수 벡터 변환은 브라우저에서 불가)
-                    // 실무에서는 여기서 JSON 메타데이터를 포함한 ZIP을 생성할 수도 있음
-                    downloadUrl = canvas.toDataURL('image/png'); // 원본 화질 유지
+                    downloadUrl = canvas.toDataURL('image/png'); 
                     downloadName = `${fileName}_Project_Source.png`;
-                    
-                    alert("⚠️ 안내: AI(벡터) 파일 변환은 서버 처리가 필요합니다.\n현재는 편집 가능한 고해상도 원본(PNG)으로 다운로드됩니다.");
-                    triggerDownload(downloadUrl, downloadName);
-                }
-                
-                closeDownloadModal();
-            };
-
-            img.onerror = () => {
-                alert("이미지 로드 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
-                closeDownloadModal();
-            };
-        }
-
-        function triggerDownload(url, name) {
-            const link = document.createElement('a');
-            link.download = name;
-            link.href = url;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-    </script>
-</body>
-</html>
+                    alert("⚠️ 안내: AI(벡터) 파일 변환은 서버 처리가 필요합니다.\n현재는 편집 가능한 고해상도 원본(
